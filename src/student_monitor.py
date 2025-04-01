@@ -22,7 +22,7 @@ class ComprehensionEstimator:
         self.Q = 6e-8   # 过程噪声协方差 (越大代表理解度变化剧烈)
         self.R = 1e-4   # 测量噪声协方差 (越小代表分数测量更精确)
         self.P = 1.0    # 估计协方差
-        self.x = 0   # 初始估计值 
+        self.x = -8   # 初始估计值 
 
     def smooth_understanding_score(self, student_id, current_score):
         """使用卡尔曼滤波平滑理解度分数"""

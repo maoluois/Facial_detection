@@ -12,6 +12,7 @@ from datetime import datetime
 import time
 from collections import deque
 import dlib
+from debugger import DataDebugger
 
 if dlib.DLIB_USE_CUDA:
     print("dlib is using GPU")
@@ -36,8 +37,57 @@ def normalize(value, min_val, max_val):
     """将数值归一化到 [0, 1]"""
     return (value - min_val) / (max_val - min_val)
 
+def normalize1(value, min_val, max_val):
+    """将数值归一化到 [0, 1]，超出范围的值得分较低，范围内的值越靠近中心得分越高"""
+    if min_val == max_val:
+        raise ValueError("min_val and max_val cannot be the same")
+
+    center_val = (min_val + max_val) / 2
+
+    if value < min_val:
+        return 0.0
+    elif value > max_val:
+        return 0.0
+    else:
+        # 计算归一化分数，越靠近中心得分越高
+        return 1 - abs(value - center_val) / (max_val - min_val)
+    
+def normalize_max(value, min_val, max_val):
+    """将数值归一化到 [0, 1]，越靠近最大值得分越高"""
+    if min_val == max_val:
+        raise ValueError("min_val and max_val cannot be the same")
+
+    if value < min_val:
+        return 0.0
+    elif value > max_val:
+        return 1.0
+    else:
+        # 计算归一化分数，越靠近最大值得分越高
+        return (value - min_val) / (max_val - min_val)
+    
+def normalize_min(value, min_val, max_val):
+    """将数值归一化到 [0, 1]，越靠近最小值得分越高"""
+    if min_val == max_val:
+        raise ValueError("min_val and max_val cannot be the same")
+
+    if value < min_val:
+        return 1.0
+    elif value > max_val:
+        return 0.0
+    else:
+        # 计算归一化分数，越靠近最小值得分越高
+        return 1 - (value - min_val) / (max_val - min_val)
+
+    
+def low_pass_filter(new_value, prev_value, alpha):
+    """低通滤波函数，平滑数据"""
+    return alpha * new_value + (1 - alpha) * prev_value
+
 class EmotionRecognition:
     def __init__(self):
+        # 初始化调试器
+        # self.debugger = DataDebugger()
+
         # 初始化Dlib人脸检测器和特征点检测器
         self.detector = dlib.get_frontal_face_detector()
         self.predictor = dlib.shape_predictor("model/shape_predictor_68_face_landmarks.dat")
@@ -57,7 +107,7 @@ class EmotionRecognition:
         # 3D人脸模型关键点 - 用于头部姿态估计
         self.model_points_68 = self._get_full_model_points()
         
-        # 相机内参（估计值）
+        # 相机内参（校准值）
         self.camera_matrix = np.array(
             [[6894, 0, 301],
              [0, 6901, 230],
@@ -77,19 +127,28 @@ class EmotionRecognition:
         }
         
         self.ear_history = deque(maxlen=5)
+        
         self.last_smooth_ear = None
+        self.last_yaw = None
+        self.last_pitch = None
+        self.last_mouth_movement = None
+        self.last_eye_movement = None
+        self.last_brow_movement = None
+
         self.smoothing_emotion_alpha = 1 # 表情平滑系数      
-        self.alpha = 0.75  # 平滑系数
+        self.alpha = 0.6  # 平滑系数
         self.normalization_ranges = {                # 归一化标准值字典
-            "yaw_forward": (-20, 20),  # 头部前倾
-            "yaw_turn": (0, 25),  # 头部转向
-            "movement": (0, 5),  # 运动幅度
-            "eye_height": (6, 12),  # 眼睛高度
-            "eye_ratio": (0.2, 0.5),  # 眼睛开合比例
-            "brow_height": (-10, 10),  # 眉毛高度
-            "brow_asymmetry": (0, 10),  # 眉毛不对称度
-            "mouth_open": (5, 25),  # 嘴巴张开
-            "jaw_drop": (15, 40),  # 下巴下垂
+            "yaw_forward": (-20, 20),  # 头部正向
+            "yaw_turn": (20, 60),  # 头部转向
+            "movement": (0, 10),  # 运动幅度
+            "face_active": (0, 15),  # 面部活跃度
+            "eye_height": (12, 18),  # 眼睛高度
+            "eye_ratio": (0, 0.20),  # 眼睛开合比例
+            "brow_height": (-38, -8),  # 眉毛高度
+            "brow_asymmetry": (7, 10),  # 眉毛不对称度
+            "mouth_open": (0, 39),  # 嘴巴张开
+            "smile": (15, 39),  # 微笑
+            "jaw_drop": (0, 55),  # 下巴下垂
             "ear": (0.15, 0.3),  # 眼睛长宽比 EAR
         }
 
@@ -230,7 +289,7 @@ class EmotionRecognition:
         if self.last_smooth_ear is None:
             avg_ear = current_ear
         else:
-            avg_ear = self.alpha * current_ear + (1 - self.alpha) * self.last_smooth_ear
+            avg_ear = low_pass_filter(current_ear, self.last_smooth_ear, self.alpha)
         
         # 更新上一帧平滑值
         self.last_smooth_ear = avg_ear
@@ -255,7 +314,15 @@ class EmotionRecognition:
         
         # 估计头部姿态
         pitch, yaw, roll, rotation_vec, translation_vec = self.estimate_head_pose(landmarks, image)
+        self.last_yaw = yaw
+        self.last_pitch = pitch
+        yaw = low_pass_filter(yaw, self.last_yaw, 0.5)
+        # pitch = low_pass_filter(pitch, self.last_pitch, 0.5)
+        # print(f"Yaw: {yaw:.2f}, Pitch: {pitch:.2f}")
+        # self.debugger.update(yaw, 100)
         
+        
+
         # # 检测动作单元
         # aus = self.detect_action_units(landmarks)
         
@@ -272,16 +339,26 @@ class EmotionRecognition:
             # 计算面部关键点变化
             movement = np.linalg.norm(landmarks - self.last_landmarks, axis=1)
             movement_magnitude = np.mean(movement)
-            
+
+
             # 微表情判断更精细化
             mouth_movement = np.mean(movement[48:68])  # 嘴部区域移动
             eye_movement = np.mean(movement[36:48])   # 眼睛区域移动
             brow_movement = np.mean(movement[17:27])  # 眉毛区域移动
+            # print(f"Mouth: {mouth_movement:.2f}, Eye: {eye_movement:.2f}, Brow: {brow_movement:.2f}")
+
+            self.last_mouth_movement = np.mean(movement[48:68])  
+            self.last_eye_movement = np.mean(movement[36:48])
+            self.last_brow_movement = np.mean(movement[17:27])
+
+            low_pass_filter(mouth_movement, self.last_mouth_movement, 0.2)
+            low_pass_filter(eye_movement, self.last_eye_movement, 0.2)
+            low_pass_filter(brow_movement, self.last_brow_movement, 0.2)
             
             # 微表情是局部的小幅度变化
             if (1 < mouth_movement < 3 or 
-                0.5 < eye_movement < 2 or 
-                0.5 < brow_movement < 2):
+                0.5 < eye_movement < 2.5 or 
+                0.5 < brow_movement < 3):
                 micro_expression = True
         
         self.last_landmarks = landmarks.copy()  # 保存当前帧的关键点
@@ -293,7 +370,8 @@ class EmotionRecognition:
             recent_pitches = [pose[0] for pose in list(self.head_pose_history)[-5:]]
             yaw_variation = np.std(recent_yaws)
             pitch_variation = np.std(recent_pitches)
-            head_stable = yaw_variation < 5 and pitch_variation < 5
+            head_stable = yaw_variation < 10 # pitch有跨越0度问题 ？？？
+            print(f"Yaw Variation: {yaw_variation:.2f}, Pitch Variation: {pitch_variation:.2f}")
         
 
     # def detect_action_units(self, landmarks):
@@ -303,23 +381,26 @@ class EmotionRecognition:
 
         # 计算各部位的几何特征
         aus = {}
-
+    
         # 头部方向
-        aus['head_forward'] = max(0, 1 - abs(normalize(yaw, *self.normalization_ranges["yaw_forward"]))) if yaw is not None else 0
-        aus['head_turn'] = normalize(abs(yaw), *self.normalization_ranges["yaw_turn"]) if yaw is not None else 0
-        print("yaw")
+        aus['head_forward'] = max(0, 1 - abs(normalize1(yaw, *self.normalization_ranges["yaw_forward"]))) if yaw is not None else 0
+        aus['head_turn'] = normalize_max(abs(yaw), *self.normalization_ranges["yaw_turn"]) if yaw is not None else 0
+        # print(f"Yaw: {yaw:.2f}") 
+        
         # 面部运动
-        aus['frequent_movement'] = normalize(movement_magnitude, *self.normalization_ranges["movement"])
-        aus['face_active'] = normalize(movement_magnitude * 1.5, *self.normalization_ranges["movement"])  # 放大运动活跃度
+        aus['frequent_movement'] = normalize_max(movement_magnitude, *self.normalization_ranges["movement"])
+        aus['face_active'] = normalize_max(movement_magnitude, *self.normalization_ranges["face_active"])  # 放大运动活跃度
         aus['no_micro_expression'] = 1 - int(micro_expression)
+        # print(f"Movement: {movement_magnitude:.2f}, Micro: {micro_expression}")
 
         # 眉毛特征
         brow_height = (landmarks[21][1] + landmarks[22][1]) / 2 - landmarks[27][1]
         left_brow_height = landmarks[21][1] - landmarks[27][1]
         right_brow_height = landmarks[22][1] - landmarks[27][1]
+        # print(f"Brow: {brow_height:.2f}, Left: {left_brow_height:.2f}, Right: {right_brow_height:.2f}")
 
-        aus["BrowFurrow"] = sigmoid(normalize(brow_height, *self.normalization_ranges["brow_height"]))
-        aus["BrowFurrowAsymmetry"] = sigmoid(normalize(abs(left_brow_height - right_brow_height), *self.normalization_ranges["brow_asymmetry"]))
+        aus["BrowFurrow"] = sigmoid(normalize_max(brow_height, *self.normalization_ranges["brow_height"]))
+        aus["BrowFurrowAsymmetry"] = sigmoid(normalize_max(abs(left_brow_height - right_brow_height), *self.normalization_ranges["brow_asymmetry"]))
 
         # 眼睛特征
         left_eye_height = np.linalg.norm(landmarks[37] - landmarks[41])
@@ -328,19 +409,21 @@ class EmotionRecognition:
         left_eye_ratio = left_eye_height / np.linalg.norm(landmarks[36] - landmarks[39])
         right_eye_ratio = right_eye_height / np.linalg.norm(landmarks[42] - landmarks[45])
         eye_ratio_avg = (left_eye_ratio + right_eye_ratio) / 2
+        # print(f"Eye Height: {eye_height_avg:.2f}, Eye Ratio: {eye_ratio_avg:.2f}")
 
-        aus["UpperLidRaiser"] = sigmoid(normalize(eye_height_avg, *self.normalization_ranges["eye_height"]))
-        aus["EyeSquint"] = 1 - sigmoid((normalize(eye_ratio_avg, *self.normalization_ranges["eye_ratio"]) - 0.35) * 10)
+        aus["UpperLidRaiser"] = sigmoid(normalize_max(eye_height_avg, *self.normalization_ranges["eye_height"]))
+        aus["EyeSquint"] = sigmoid((normalize_min(eye_ratio_avg, *self.normalization_ranges["eye_ratio"])))
 
         # 嘴部特征
         mouth_corner_height = (landmarks[54][1] + landmarks[48][1]) / 2
         mouth_center_height = landmarks[57][1]
         mouth_open = np.linalg.norm(landmarks[62] - landmarks[66])
         jaw_drop = np.linalg.norm(landmarks[62] - landmarks[66])
+        # print(f"Mouth Corner: {mouth_corner_height:.2f}, Mouth Center: {mouth_center_height:.2f}, Mouth Open: {mouth_open:.2f}, Jaw Drop: {jaw_drop:.2f}")
 
-        aus["Smile"] = sigmoid(normalize((mouth_center_height - mouth_corner_height), *self.normalization_ranges["brow_height"]))
-        aus["LipsPart"] = sigmoid(normalize(mouth_open, *self.normalization_ranges["mouth_open"])) - sigmoid(normalize(mouth_open - 10, *self.normalization_ranges["mouth_open"]))
-        aus["JawDrop"] = sigmoid(normalize(jaw_drop, *self.normalization_ranges["jaw_drop"]))
+        aus["Smile"] = sigmoid(normalize1((mouth_center_height - mouth_corner_height), *self.normalization_ranges["smile"]))
+        aus["LipsPart"] = sigmoid(normalize1(mouth_open, *self.normalization_ranges["mouth_open"]))
+        aus["JawDrop"] = sigmoid(normalize_max(jaw_drop, *self.normalization_ranges["jaw_drop"]))
 
 
 
@@ -352,18 +435,17 @@ class EmotionRecognition:
         
         focused_conditions = [
         aus["head_forward"],
-        normalize(avg_ear, 0.22, 0.26),
+        normalize1(avg_ear, 0.22, 0.26),
         int(head_stable),
         aus["no_micro_expression"],
-        aus["BrowFurrow"],
         ]
-        focused_score = sum([10, 5, 10, 5, 5][i] * focused_conditions[i] for i in range(len(focused_conditions)))
-
+        focused_score = sum([5, 2, 20, 8][i] * focused_conditions[i] for i in range(len(focused_conditions)))
+        
         # 2. 分心状态（Distraction）
         distraction_conditions = [
             aus["head_turn"],
             aus["frequent_movement"],
-            micro_expression * aus["face_active"],
+            micro_expression,
         ]
         distracted_score = sum([15, 10, 10][i] * distraction_conditions[i] for i in range(len(distraction_conditions)))
 
@@ -372,31 +454,31 @@ class EmotionRecognition:
             aus["BrowFurrowAsymmetry"],
             aus["EyeSquint"],
             aus["LipsPart"],
-            normalize(avg_ear, 0.19, 0.22) * (1 - aus["Smile"]),
+            normalize1(avg_ear, 0.19, 0.22) * (1 - aus["Smile"]),
         ]
         confusion_score = sum([15, 5, 5, 10][i] * confusion_conditions[i] for i in range(len(confusion_conditions)))
 
         # 4. 疲劳状态（Fatigue）
         fatigue_conditions = [
             min(1, max(0, (pitch + 10) / 20)),  # 头部下倾归一化
-            normalize(avg_ear, 0.0, 0.19) * (1 - aus["Smile"]),
+            normalize_min(avg_ear, 0.0, 0.19) * (1 - aus["Smile"]),
             aus["EyeSquint"],
             aus["JawDrop"],
         ]
-        fatigue_score = sum([5, 10, 5, 15][i] * fatigue_conditions[i] for i in range(len(fatigue_conditions)))
+        fatigue_score = sum([5, 5, 5, 20][i] * fatigue_conditions[i] for i in range(len(fatigue_conditions)))
 
         # 5. 兴奋状态（Excitement）
         excitement_conditions = [
             aus["Smile"],
             aus["LipsPart"],
-            normalize(avg_ear, 0.26, 0.35),
+            normalize1(avg_ear, 0.26, 0.35),
             aus["face_active"],
         ]
-        excitement_score = sum([15, 5, 10, 5][i] * excitement_conditions[i] for i in range(len(excitement_conditions)))
+        excitement_score = sum([15, 10, 5, 5][i] * excitement_conditions[i] for i in range(len(excitement_conditions)))
         
         # 重置信心值，使用指数衰减
         for emotion in self.emotion_confidence:
-            self.emotion_confidence[emotion] *= 0.75 # 提高保留率，使情绪状态更稳定
+            self.emotion_confidence[emotion] *= 1 # 提高保留率，使情绪状态更稳定
 
         # 更新情绪置信度，使用指数平滑
         for emotion in self.emotion_confidence:
@@ -415,8 +497,9 @@ class EmotionRecognition:
                 new_score = min(50, excitement_score)
 
             # 应用指数平滑
-            self.emotion_confidence[emotion] = self.smoothing_emotion_alpha * new_score + (1 - self.smoothing_emotion_alpha) * previous_confidence
-    
+            self.emotion_confidence[emotion] = low_pass_filter(new_score, previous_confidence, self.smoothing_emotion_alpha)
+
+        # print(self.emotion_confidence)
         # 确定最高可能的情绪状态
         max_emotion = max(self.emotion_confidence, key=self.emotion_confidence.get)
         max_confidence = self.emotion_confidence[max_emotion]
@@ -463,6 +546,6 @@ class EmotionRecognition:
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 1)
         
         # print(f"Eye Ratio: {avg_ear:.3f}, gaze_vector: [{gaze_vector}], " + ", ".join([f"{emotion}: {confidence:.2f}" for emotion, confidence in self.emotion_confidence.items()]))
-        print(aus)
+        # print(aus)
         return result_image
 
