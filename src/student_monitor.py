@@ -9,6 +9,49 @@ from datetime import datetime
 from face_recognition import FaceRecognition
 from emotion_recognition import EmotionRecognition
 
+class ComprehensionEstimator:
+    def __init__(self, history_length=10):
+        """
+        初始化理解度估计器（使用卡尔曼滤波）
+        :param history_length: 存储历史理解度分数的最大长度
+        """
+        self.history_length = history_length
+        self.understanding_history = {}  # 存储每个学生的理解度历史
+
+        # 卡尔曼滤波参数
+        self.Q = 6e-8   # 过程噪声协方差 (越大代表理解度变化剧烈)
+        self.R = 1e-4   # 测量噪声协方差 (越小代表分数测量更精确)
+        self.P = 1.0    # 估计协方差
+        self.x = 0   # 初始估计值 
+
+    def smooth_understanding_score(self, student_id, current_score):
+        """使用卡尔曼滤波平滑理解度分数"""
+        if student_id not in self.understanding_history:
+            self.understanding_history[student_id] = {
+                "x": self.x,  # 初始状态
+                "P": self.P,  # 估计协方差
+            }
+        
+        # 读取当前学生的卡尔曼状态
+        state = self.understanding_history[student_id]
+        x, P = state["x"], state["P"]
+        
+        # === 预测步骤 ===
+        x_predict = x  # 预测的理解度值（假设理解度不会剧烈变化）
+        P_predict = P + self.Q  # 预测的不确定性增加
+        
+        # === 更新步骤 ===
+        K = P_predict / (P_predict + self.R)  # 计算卡尔曼增益
+        x_update = x_predict + K * (current_score - x_predict)  # 更新理解度估计
+        P_update = (1 - K) * P_predict  # 更新估计协方差
+        
+        # 存储更新后的状态
+        self.understanding_history[student_id]["x"] = x_update
+        self.understanding_history[student_id]["P"] = P_update
+
+        return x_update
+    
+    
 class ClassroomMonitor:
     """学生课堂状态监测系统"""
     
@@ -16,6 +59,9 @@ class ClassroomMonitor:
         # 初始化人脸识别和表情识别模块
         self.face_recognition = FaceRecognition()
         self.emotion_recognition = EmotionRecognition()
+              
+        # 初始化理解度估计器
+        self.comprehension_estimator = ComprehensionEstimator()
 
         # 添加数据收集结构
         self.student_understanding_data = {}  # 格式: {student_id: [(timestamp, score), ...]}
@@ -62,10 +108,10 @@ class ClassroomMonitor:
         # 设定各情绪状态对理解度的权重系数
         weights = {
             "Focused": 0.50,     # 专注是理解的最大正向因素
-            "Distracted": 0.05, # 分心严重影响理解
-            "Confused": 0.15,   # 困惑表示理解障碍，但可能是思考过程
-            "Fatigued": 0.10,   # 疲劳降低认知能力
-            "Excited": 0.20      # 适度兴奋有助于理解和记忆
+            "Distracted": -0.40, # 分心严重影响理解
+            "Confused": 0.00,   # 困惑表示理解障碍，但可能是思考过程
+            "Fatigued": -0.20,   # 疲劳降低认知能力
+            "Excited": 0.10      # 适度兴奋有助于理解和记忆
         }
         
         # 计算加权得分
@@ -80,21 +126,25 @@ class ClassroomMonitor:
     
     def smooth_understanding_score(self, student_id, current_score):
         """平滑处理理解度分数，避免剧烈波动"""
-        if student_id not in self.understanding_history:
-            self.understanding_history[student_id] = deque(maxlen=self.history_length)
+        return self.comprehension_estimator.smooth_understanding_score(student_id, current_score)
+    
+    # def smooth_understanding_score(self, student_id, current_score):
+    #     """平滑处理理解度分数，避免剧烈波动"""
+    #     if student_id not in self.understanding_history:
+    #         self.understanding_history[student_id] = deque(maxlen=self.history_length)
             
-        history = self.understanding_history[student_id]
-        history.append(current_score)
+    #     history = self.understanding_history[student_id]
+    #     history.append(current_score)
         
-        # 如果历史记录不足，直接返回当前分数
-        if len(history) < 3:
-            return current_score
+    #     # 如果历史记录不足，直接返回当前分数
+    #     if len(history) < 3:
+    #         return current_score
             
-        # 应用指数加权移动平均
-        alpha = self.smoothing_alpha
-        smoothed_score = current_score * alpha + (1 - alpha) * sum(list(history)[:-1]) / (len(history) - 1)
+    #     # 应用指数加权移动平均
+    #     alpha = self.smoothing_alpha
+    #     smoothed_score = current_score * alpha + (1 - alpha) * sum(list(history)[:-1]) / (len(history) - 1)
         
-        return smoothed_score
+    #     return smoothed_score
     
     def process_frame(self, frame):
         """处理视频帧，返回增强显示的帧"""
@@ -124,6 +174,9 @@ class ClassroomMonitor:
         
             # 1. 使用优化后的人脸识别方法
             student_id, confidence, landmarks = self.face_recognition.identify_face(frame, face, gray)
+
+            # # 计算眼睛的开合度
+            # avg_ear = self.face_recognition.smoother_ear(landmarks)
             
             # 2. 从整帧中裁剪出人脸区域
             face_image = frame[max(0, y1-30):min(frame.shape[0], y2+30), 
@@ -135,20 +188,20 @@ class ClassroomMonitor:
             
             if face_image.size > 0:
                 # 3. 对每个人脸单独进行情绪检测
-                self.emotion_recognition.detect_expressions(face_image)
+                self.emotion_recognition.detect_expressions(face_image, student_id)
                 
                 # 获取该人脸的情绪分数
                 emotion_scores = self.emotion_recognition.emotion_confidence
             else:
                 # 如果裁剪失败，使用默认的情绪分数
-                emotion_scores = {"Focused": 20, "Distracted": 20, "Confused": 20, 
-                                "Fatigued": 20, "Excited": 20}
+                emotion_scores = {"Focused": 0, "Distracted": 0, "Confused": 0, 
+                                "Fatigued": 0, "Excited": 0}
             
             # 识别主要情绪 - 使用自定义阈值
             max_emotion = max(emotion_scores, key=emotion_scores.get)
             max_confidence = emotion_scores[max_emotion]
             
-            if max_confidence < 60:
+            if max_confidence < 1:
                 max_emotion = "Unknown"
             
             emotion_label = self.emotion_labels.get(max_emotion, "Unknown")
@@ -188,6 +241,9 @@ class ClassroomMonitor:
                       self.display_font, 0.5, self.neutral_color, 1)
             cv2.putText(result_image, f"Score: {smoothed_score:.1f}", (info_x + 10, info_y + 70), 
                       self.display_font, 0.5, self.neutral_color, 1)
+                    # 添加眼睛开合度显示
+            # cv2.putText(result_image, f"Eye Ratio: {avg_ear:.3f}", (10, 120), 
+            #         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 1)
         
         return result_image
     
@@ -251,7 +307,7 @@ class ClassroomMonitor:
         self.ax.set_title("Real-time Understanding Trends")
         self.ax.set_xlabel("Time (seconds)")
         self.ax.set_ylabel("Understanding Score")
-        self.ax.set_ylim(0, 100)
+        self.ax.set_ylim(-20, 20)
         self.ax.grid(True, linestyle='--', alpha=0.7)
         
         return self.figure

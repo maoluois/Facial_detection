@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 import random
+import json
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from emotion_recognition import EmotionRecognition
@@ -35,18 +36,16 @@ class FaceAnalysisApp:
         self.tab1 = ttk.Frame(self.tab_control)
         self.tab2 = ttk.Frame(self.tab_control)
         self.tab3 = ttk.Frame(self.tab_control)
-        self.tab4 = ttk.Frame(self.tab_control)
+
         
         self.tab_control.add(self.tab1, text='人脸注册与识别')
-        self.tab_control.add(self.tab2, text='实时人脸识别')
-        self.tab_control.add(self.tab3, text='表情状态检测')
-        self.tab_control.add(self.tab4, text='课堂状态监测')
+        self.tab_control.add(self.tab2, text='校准程序')
+        self.tab_control.add(self.tab3, text='课堂状态监测')
         self.tab_control.pack(expand=1, fill="both")
         
         # 设置各个标签页的内容
         self.setup_registration_tab()
-        self.setup_live_recognition_tab()
-        self.setup_emotion_detection_tab()
+        self.setup_calibration_tab()
         self.setup_classroom_monitor_tab()
         
         # 视频捕获变量
@@ -60,7 +59,7 @@ class FaceAnalysisApp:
         self.window.mainloop()
     
     def setup_registration_tab(self):
-        # 左侧: 图像显示和文件选择
+        # 左侧: 图像显示和文件选择 
         left_frame = ttk.Frame(self.tab1)
         left_frame.pack(side="left", padx=10, pady=10)
         
@@ -177,49 +176,83 @@ class FaceAnalysisApp:
         # 开始预览
         update_preview()
     
-    def setup_live_recognition_tab(self):
+    def setup_calibration_tab(self):
         # 视频显示区域
-        self.video_canvas = tk.Canvas(self.tab2, width=640, height=480)
-        self.video_canvas.pack(pady=10)
+        self.emotion_canvas = tk.Canvas(self.tab2, width=640, height=480)
+        self.emotion_canvas.pack(pady=10)
         
         # 控制按钮
         control_frame = ttk.Frame(self.tab2)
         control_frame.pack(pady=5)
         
-        self.start_recognition_btn = ttk.Button(control_frame, text="开始识别", command=self.start_live_recognition)
-        self.start_recognition_btn.pack(side="left", padx=5)
+        self.start_calibration_btn = ttk.Button(control_frame, text="开始校准", command=self.start_calibration)
+        self.start_calibration_btn.pack(side="left", padx=5)
         
-        self.stop_recognition_btn = ttk.Button(control_frame, text="停止", command=self.stop_capture)
-        self.stop_recognition_btn.pack(side="left", padx=5)
-    
-    def setup_emotion_detection_tab(self):
-        # 视频显示区域
-        self.emotion_canvas = tk.Canvas(self.tab3, width=640, height=480)
-        self.emotion_canvas.pack(pady=10)
+        self.stop_calibration_btn = ttk.Button(control_frame, text="停止校准", command=self.stop_calibration)
+        self.stop_calibration_btn.pack(side="left", padx=5)
         
-        # 控制按钮
-        control_frame = ttk.Frame(self.tab3)
-        control_frame.pack(pady=5)
-        
-        self.start_emotion_btn = ttk.Button(control_frame, text="开始检测", command=self.start_emotion_detection)
-        self.start_emotion_btn.pack(side="left", padx=5)
-        
-        self.stop_emotion_btn = ttk.Button(control_frame, text="停止", command=self.stop_capture)
-        self.stop_emotion_btn.pack(side="left", padx=5)
-        
-        # 表情状态说明
-        info_frame = ttk.LabelFrame(self.tab3, text="检测的表情状态")
+        # AUs标准值校准说明
+        info_frame = ttk.LabelFrame(self.tab2, text="AUs标准值校准")
         info_frame.pack(pady=10, fill="x", padx=10)
         
+        # info不完整，还要完善 ！！！！！
         info_text = """
-        1. Focused: 专注状态，凝视方向稳定，眨眼频率低，轻微皱眉
-        2. Distracted: 分心状态，头部偏转角度大，视线频繁扫视，微表情变化快
-        3. Confused: 困惑状态，单侧皱眉，频繁眯眼，嘴唇轻微张开
-        4. Fatigued: 疲劳状态，PERCLOS指标高，头部下倾，打哈欠动作
-        5. Excited: 兴奋状态，嘴角上扬，上眼睑提升，瞳孔扩大
+        请按照以下步骤进行校准：
+        1. 皱眉 - 请尽量皱眉，保持3秒
+        2. 上眼睑提升 - 请尽量睁大眼睛，保持3秒
+        3. 眯眼 - 请尽量眯眼，保持3秒
+        4. 嘴角上扬（微笑） - 请尽量微笑，保持3秒
+        5. 嘴唇分离（轻微张口） - 请轻微张口，保持3秒
+        6. 下颌下降（打哈欠） - 请尽量打哈欠，保持3秒
         """
         ttk.Label(info_frame, text=info_text, justify="left").pack(pady=5)
+        
+    def start_calibration(self):
+        # 初始化校准数据
+        self.calibration_data = {
+            "head_forward": {"max": None, "min": None, "standard": None},
+            "head_turn": {"max": None, "min": None, "standard": None},
+            "frequent_movement": {"max": None, "min": None, "standard": None},
+            "face_active": {"max": None, "min": None, "standard": None},
+            "no_micro_expression": {"max": None, "min": None, "standard": None},
+            "BrowFurrow": {"max": None, "min": None, "standard": None},
+            "BrowFurrowAsymmetry": {"max": None, "min": None, "standard": None},
+            "UpperLidRaiser": {"max": None, "min": None, "standard": None},
+            "EyeSquint": {"max": None, "min": None, "standard": None},
+            "Smile": {"max": None, "min": None, "standard": None},
+            "LipsPart": {"max": None, "min": None, "standard": None},
+            "JawDrop": {"max": None, "min": None, "standard": None},
+        }
+        # 开始捕捉视频帧并进行校准
+        self.capture_video_for_calibration()
     
+    def stop_calibration(self):
+        # 停止视频捕捉并保存校准数据
+        self.is_calibrating = False
+        self.save_calibration_data()
+
+    def capture_video_for_calibration(self):
+        # 捕捉视频帧并计算AUs的最大值、最小值和标准值
+        pass
+
+    def save_calibration_data(self):
+        # 保存校准数据到文件或变量中
+        # 直接取中间值是否正确？？ ！！！！！！
+        for au, data in self.calibration_data.items():
+            data["standard"] = (data["max"] + data["min"]) / 2
+    
+        # 假设有一个函数 `save_to_file` 保存数据到文件
+        self.save_to_file(self.calibration_data, "calibration_data.json")
+
+    def save_to_file(self, data, filename):
+        # 保存数据到文件
+        with open(filename, 'w') as f:
+            json.dump(data, f, indent=4)    
+
+    def detect_aus(self, frame):
+        pass
+               
+            
     def select_image(self):
         file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.jpg *.jpeg *.png")])
         if file_path:
@@ -313,8 +346,8 @@ class FaceAnalysisApp:
             # 在主线程中更新UI
             self.window.after(1, lambda: self.display_image(processed_frame, self.target_canvas))
             
-            # 控制帧率
-            time.sleep(0.03)  # 约30fps
+            # # 控制帧率
+            # time.sleep(0.03)  # 约30fps
     
     def start_live_recognition(self):
         self.start_capture(self.video_canvas, self.face_recognition.recognize_face_stream)
@@ -337,7 +370,7 @@ class FaceAnalysisApp:
         self.classroom_monitor = ClassroomMonitor()
         
         # 创建分割面板
-        paned_window = ttk.PanedWindow(self.tab4, orient=tk.HORIZONTAL)
+        paned_window = ttk.PanedWindow(self.tab3, orient=tk.HORIZONTAL)
         paned_window.pack(fill="both", expand=True)
         
         # 左侧面板 - 视频显示
@@ -458,72 +491,8 @@ class FaceAnalysisApp:
             progress.destroy()
             messagebox.showerror("Error", f"Error generating reports:\n{str(e)}")
 
-        # 创建新窗口用于显示趋势图
-        trend_window = tk.Toplevel(self.window)
-        trend_window.title("学生理解度趋势")
-        trend_window.geometry("800x500")
-
-        # 创建 Matplotlib 图像
-        fig, ax = plt.subplots(figsize=(8, 4))
-        ax.set_title("学生理解度趋势")
-        ax.set_xlabel("时间 (秒)")
-        ax.set_ylabel("理解度分数 (0-100)")
-        ax.set_ylim(0, 100)
-
-        for student_id, data_points in self.classroom_monitor.student_understanding_data.items():
-            timestamps = [point[0] for point in data_points]
-            scores = [point[1] for point in data_points]
-            ax.plot(timestamps, scores, marker="o", linestyle="-", label=f"学生 {student_id}")
-
-        ax.legend()
-
-        # 嵌入 Tkinter Canvas
-        canvas = FigureCanvasTkAgg(fig, master=trend_window)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
 
-    def start_monitoring(self):
-        """开始课堂监测并实时更新理解度趋势"""
-        if self.is_monitoring:
-            return
-
-        self.is_monitoring = True
-        self.classroom_monitor.student_understanding_data = {}  # 清空旧数据
-        self.ax.clear()
-
-        def update_graph():
-            start_time = time.time()
-            while self.is_monitoring:
-                elapsed_time = time.time() - start_time
-                student_id = random.choice(["S1", "S2", "S3"])  # 模拟学生 ID
-                understanding_score = random.randint(50, 100)  # 模拟数据，可替换成实际分析值
-
-                if student_id not in self.classroom_monitor.student_understanding_data:
-                    self.classroom_monitor.student_understanding_data[student_id] = []
-                self.classroom_monitor.student_understanding_data[student_id].append((elapsed_time, understanding_score))
-
-                # 更新 Matplotlib 图表
-                self.ax.clear()
-                self.ax.set_title("学生理解度趋势")
-                self.ax.set_xlabel("时间 (秒)")
-                self.ax.set_ylabel("理解度分数 (0-100)")
-                self.ax.set_ylim(0, 100)
-
-                for student_id, data_points in self.classroom_monitor.student_understanding_data.items():
-                    timestamps = [point[0] for point in data_points]
-                    scores = [point[1] for point in data_points]
-                    self.ax.plot(timestamps, scores, marker="o", linestyle="-", label=f"学生 {student_id}")
-
-                self.ax.legend()
-                self.canvas.draw()
-                time.sleep(1)  # 每秒更新一次数据
-
-        threading.Thread(target=update_graph, daemon=True).start()
-
-    def stop_monitoring(self):
-        """停止课堂监测"""
-        self.is_monitoring = False
 
 def create_ui():
     """创建并启动人脸分析应用的用户界面"""

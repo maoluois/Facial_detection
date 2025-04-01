@@ -151,7 +151,7 @@ class EmotionRecognition:
         # AU4: 皱眉 - 计算眉间距离变化
         inner_brow_distance = np.linalg.norm(landmarks[21] - landmarks[22])
         brow_height = (landmarks[21][1] + landmarks[22][1]) / 2 - landmarks[27][1]
-        aus["AU4"] = brow_height < 10  # 皱眉时眉毛会下降
+        aus["AU4"] = brow_height < 5  # 皱眉时眉毛会下降
         
         # 检测左右皱眉的不对称性
         left_brow_height = landmarks[21][1] - landmarks[27][1]
@@ -181,8 +181,10 @@ class EmotionRecognition:
         
         # AU26+AU27: 下颌下降（打哈欠）
         jaw_drop = np.linalg.norm(landmarks[62] - landmarks[66])
-        aus["AU26_27"] = jaw_drop > 20 and mouth_open > 20  # 打哈欠时下颌明显下降
-        
+        aus["AU26_27"] = jaw_drop > 25 and mouth_open > 25  # 打哈欠时下颌明显下降
+        # 打印所有判据
+        print(f"inner_brow_distance: {inner_brow_distance}, brow_height: {brow_height}, left_brow_height: {left_brow_height}, right_brow_height: {right_brow_height}, left_eye_height: {left_eye_height}, right_eye_height: {right_eye_height}, eye_height_avg: {eye_height_avg}, left_eye_ratio: {left_eye_ratio}, right_eye_ratio: {right_eye_ratio}, eye_ratio_avg: {eye_ratio_avg}, mouth_corner_height: {mouth_corner_height}, mouth_center_height: {mouth_center_height}, mouth_open: {mouth_open}, jaw_drop: {jaw_drop}")
+    
         return aus
 
     # 添加计算眼睛长宽比（EAR）的函数
