@@ -110,7 +110,7 @@ class ClassroomMonitor:
             "Focused": 0.50,     # 专注是理解的最大正向因素
             "Distracted": -0.40, # 分心严重影响理解
             "Confused": -0.10,   # 困惑表示理解障碍，但可能是思考过程
-            "Fatigued": -0.20,   # 疲劳降低认知能力
+            "Fatigued": -0.30,   # 疲劳降低认知能力
             "Excited": 0.20      # 适度兴奋有助于理解和记忆
         }
         
@@ -276,15 +276,19 @@ class ClassroomMonitor:
             plt.title(f"Student Understanding Trend - {student_id}")
             plt.xlabel("Time (seconds)")
             plt.ylabel("Understanding Score")
-            plt.ylim(0, max(100, max(scores) + 10))
+            plt.ylim(-10, max(15, max(scores) + 10))
             plt.grid(True, linestyle='--', alpha=0.7)
             
             # 添加统计信息
             avg_score = sum(scores) / len(scores)
             max_score = max(scores)
             min_score = min(scores)
+            median_score = np.median(scores)
+            std_dev = np.std(scores)
+            variance = np.var(scores)
             
-            stats_text = f"Avg: {avg_score:.1f}\nMax: {max_score:.1f}\nMin: {min_score:.1f}"
+            stats_text = (f"Avg: {avg_score:.1f}\nMax: {max_score:.1f}\nMin: {min_score:.1f}\n"
+                        f"Median: {median_score:.1f}\nStd Dev: {std_dev:.1f}\nVariance: {variance:.1f}")
             plt.annotate(stats_text, xy=(0.05, 0.95), xycoords='axes fraction',
                         bbox=dict(boxstyle="round,pad=0.5", fc="white", alpha=0.8),
                         verticalalignment='top')
@@ -307,7 +311,7 @@ class ClassroomMonitor:
         self.ax.set_title("Real-time Understanding Trends")
         self.ax.set_xlabel("Time (seconds)")
         self.ax.set_ylabel("Understanding Score")
-        self.ax.set_ylim(-20, 20)
+        self.ax.set_ylim(-10, 15)
         self.ax.grid(True, linestyle='--', alpha=0.7)
         
         return self.figure

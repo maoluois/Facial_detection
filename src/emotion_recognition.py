@@ -360,7 +360,7 @@ class EmotionRecognition:
     
         # 计算眼睛开合度 (EAR - Eye Aspect Ratio)
         avg_ear = self.smooth_ear_value(landmarks, ID)  
-        print(avg_ear)
+        # print(avg_ear)
                 
         # 计算动作变化（如果有之前的关键点）
         micro_expression = False
@@ -510,7 +510,7 @@ class EmotionRecognition:
             aus["face_active"],
         ]
         excitement_score = sum([20, 5, 10][i] * excitement_conditions[i] for i in range(len(excitement_conditions)))
-        print(excitement_score,excitement_conditions)
+        # print(excitement_score,excitement_conditions)
 
         # 重置信心值，使用指数衰减
         for emotion in self.emotion_confidence:
