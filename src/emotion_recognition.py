@@ -506,10 +506,10 @@ class EmotionRecognition:
         # 5. 兴奋状态（Excitement）
         excitement_conditions = [
             aus["Smile"],
-            normalize1(avg_ear, 0.24, 0.30),
+            aus["UpperLidRaiser"],
             aus["face_active"],
         ]
-        excitement_score = sum([20, 2, 13][i] * excitement_conditions[i] for i in range(len(excitement_conditions)))
+        excitement_score = sum([20, 5, 10][i] * excitement_conditions[i] for i in range(len(excitement_conditions)))
         print(excitement_score,excitement_conditions)
 
         # 重置信心值，使用指数衰减

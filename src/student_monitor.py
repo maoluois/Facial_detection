@@ -109,9 +109,9 @@ class ClassroomMonitor:
         weights = {
             "Focused": 0.50,     # 专注是理解的最大正向因素
             "Distracted": -0.40, # 分心严重影响理解
-            "Confused": 0.00,   # 困惑表示理解障碍，但可能是思考过程
+            "Confused": -0.10,   # 困惑表示理解障碍，但可能是思考过程
             "Fatigued": -0.20,   # 疲劳降低认知能力
-            "Excited": 0.10      # 适度兴奋有助于理解和记忆
+            "Excited": 0.20      # 适度兴奋有助于理解和记忆
         }
         
         # 计算加权得分
