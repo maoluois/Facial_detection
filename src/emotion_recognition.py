@@ -177,7 +177,6 @@ class EmotionRecognition:
             "mouth_open": (10, 30),  # 嘴巴张开
             "smile": (15, 39),  # 微笑
             "jaw_drop": (10, 35),  # 下巴下垂
-            "ear": (0.15, 0.3),  # 眼睛长宽比 EAR
         }
 
         

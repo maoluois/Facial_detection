@@ -1,0 +1,62 @@
+{
+    "head_forward": {
+        "max": 1.0,
+        "min": 0.0,
+        "standard": 0.5
+    },
+    "head_turn": {
+        "max": 1.0,
+        "min": 0.0,
+        "standard": 0.5
+    },
+    "frequent_movement": {
+        "max": 1.0,
+        "min": 0.0,
+        "standard": 0.5
+    },
+    "face_active": {
+        "max": 1.0,
+        "min": 0.0,
+        "standard": 0.5
+    },
+    "no_micro_expression": {
+        "max": 1.0,
+        "min": 0.0,
+        "standard": 0.5
+    },
+    "BrowFurrow": {
+        "max": 1.0,
+        "min": 0.0,
+        "standard": 0.5
+    },
+    "BrowFurrowAsymmetry": {
+        "max": 1.0,
+        "min": 0.0,
+        "standard": 0.5
+    },
+    "UpperLidRaiser": {
+        "max": 1.0,
+        "min": 0.0,
+        "standard": 0.5
+    },
+    "EyeSquint": {
+        "max": 1.0,
+        "min": 0.0,
+        "standard": 0.5
+    },
+    "Smile": {
+        "max": 1.0,
+        "min": 0.0,
+        "standard": 0.5
+    },
+    "LipsPart": {
+        "max": 1.0,
+        "min": 0.0,
+        "standard": 0.5
+    },
+    "JawDrop": {
+        "max": 1.0,
+        "min": 0.0,
+        "standard": 0.5
+    }
+}
