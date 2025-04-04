@@ -1,62 +1,62 @@
 {
     "head_forward": {
-        "max": 1.0,
-        "min": 0.0,
-        "standard": 0.5
+        "max": 0.9370584853853874,
+        "min": 0,
+        "standard": 0.36715605033609966
     },
     "head_turn": {
         "max": 1.0,
-        "min": 0.0,
-        "standard": 0.5
+        "min": 0.03123895732450755,
+        "standard": 0.41836037283203636
     },
     "frequent_movement": {
-        "max": 1.0,
-        "min": 0.0,
-        "standard": 0.5
+        "max": 0.6435215925778743,
+        "min": 0.2188483472406455,
+        "standard": 0.3565668332288818
     },
     "face_active": {
-        "max": 1.0,
-        "min": 0.0,
-        "standard": 0.5
+        "max": 0.32176079628893717,
+        "min": 0.10942417362032275,
+        "standard": 0.1782834166144409
     },
     "no_micro_expression": {
-        "max": 1.0,
-        "min": 0.0,
-        "standard": 0.5
+        "max": 1,
+        "min": 0,
+        "standard": 0.8348082595870207
     },
     "BrowFurrow": {
         "max": 1.0,
-        "min": 0.0,
-        "standard": 0.5
+        "min": 0.825,
+        "standard": 0.9773598820058992
     },
     "BrowFurrowAsymmetry": {
         "max": 1.0,
-        "min": 0.0,
-        "standard": 0.5
+        "min": 0.16666666666666666,
+        "standard": 0.41052114060963685
     },
     "UpperLidRaiser": {
-        "max": 1.0,
-        "min": 0.0,
-        "standard": 0.5
+        "max": 0.6161205524305263,
+        "min": 0.2805283198220218,
+        "standard": 0.485025273038559
     },
     "EyeSquint": {
-        "max": 1.0,
-        "min": 0.0,
-        "standard": 0.5
+        "max": 0.6330919884562893,
+        "min": 0.23945738398808147,
+        "standard": 0.38662261282631993
     },
     "Smile": {
         "max": 1.0,
-        "min": 0.0,
-        "standard": 0.5
+        "min": 0.5666666666666667,
+        "standard": 0.8248770894788594
     },
     "LipsPart": {
         "max": 1.0,
-        "min": 0.0,
-        "standard": 0.5
+        "min": 0.05,
+        "standard": 0.48383819213290064
     },
     "JawDrop": {
         "max": 1.0,
-        "min": 0.0,
-        "standard": 0.5
+        "min": 0.03333333333333333,
+        "standard": 0.3552624161664675
     }
 }

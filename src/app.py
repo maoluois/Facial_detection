@@ -112,8 +112,8 @@ class FaceAnalysisApp:
         ttk.Button(db_frame, text="删除", command=self.delete_face).pack(pady=5)
     
         # 校准按钮
-        calibration_btn = ttk.Button(register_frame, text="表情校准", command=self.start_expression_calibration)
-        calibration_btn.pack(pady=5)
+        # calibration_btn = ttk.Button(register_frame, text="表情校准", command=self.start_expression_calibration)
+        # calibration_btn.pack(pady=5)
 
     def capture_photo(self):
         """打开摄像头并拍照"""
