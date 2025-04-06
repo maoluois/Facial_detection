@@ -1,13 +1,14 @@
 import cv2
 import numpy as np
 import time
-from collections import deque
+import seaborn as sns
 import os
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure  # 添加这一行导入
 from datetime import datetime
 from face_recognition import FaceRecognition
 from emotion_recognition import EmotionRecognition
+from collections import Counter
 
 class ComprehensionEstimator:
     def __init__(self, history_length=10):
@@ -297,9 +298,31 @@ class ClassroomMonitor:
             filename = f"{output_directory}/{report_datetime}_{student_id}.png"
             plt.savefig(filename, dpi=100, bbox_inches='tight')
             plt.close()
-            
-            report_count += 1
         
+            # 创建热力图
+            plt.figure(figsize=(10, 6))
+            
+            # 统计表情出现频率
+            emotion_counts = Counter(self.emotion_recognition.emotion_li)
+            emotions = list(emotion_counts.keys())
+            counts = list(emotion_counts.values())
+            
+            # 创建频率矩阵
+            heatmap_data = np.array(counts).reshape(1, -1)
+            
+            # 使用seaborn绘制热力图
+            sns.heatmap(heatmap_data, annot=True, fmt="d", cmap="YlGnBu", xticklabels=emotions, yticklabels=["Frequency"])
+            
+            # 添加标题
+            plt.title(f"Student Emotion Frequency Heatmap - {student_id}")
+            
+            # 保存热力图
+            heatmap_filename = f"{output_directory}/{report_datetime}_{student_id}_heatmap.png"
+            plt.savefig(heatmap_filename, dpi=100, bbox_inches='tight')
+            plt.close()
+
+            report_count += 1
+
         return report_count
     
     def setup_realtime_chart(self):

@@ -1,33 +1,33 @@
 import cv2
-import mediapipe as mp
 import dlib
 import math
-import imutils
 import numpy as np
-import torchlm
-import os
-import pickle
-from torchlm.tools import faceboxesv2
-from torchlm.models import pipnet
-from datetime import datetime
 import time
 from collections import deque
-import dlib
-from debugger import DataDebugger
+# import mediapipe as mp
+# import imutils
+# import torchlm
+# import os
+# import pickle
+# from torchlm.tools import faceboxesv2
+# from torchlm.models import pipnet
+# from datetime import datetime
+# from debugger import DataDebugger
 
 if dlib.DLIB_USE_CUDA:
     print("dlib is using GPU")
 else:
     print("dlib is using CPU")
+
 # print("DLIB_USE_CUDA:", dlib.DLIB_USE_CUDA)
 # print("CUDA version:", dlib.cuda.get_version())
 # print("Number of CUDA devices:", dlib.cuda.get_num_devices())
 # print("Current CUDA device:", dlib.cuda.get_device())
 
-mp_drawing = mp.solutions.drawing_utils
-mp_drawing_styles = mp.solutions.drawing_styles
-mp_face_mesh = mp.solutions.face_mesh
-mp_face_detection = mp.solutions.face_detection
+# mp_drawing = mp.solutions.drawing_utils
+# mp_drawing_styles = mp.solutions.drawing_styles
+# mp_face_mesh = mp.solutions.face_mesh
+# mp_face_detection = mp.solutions.face_detection
 
 norm_eye = {"lmz" : 0.33, "phr" : 0.24}
 
@@ -118,13 +118,13 @@ class EmotionRecognition:
         self.detector = dlib.get_frontal_face_detector()
         self.predictor = dlib.shape_predictor("model/shape_predictor_68_face_landmarks.dat")
         
-        # MediaPipe面网格用于更精细的特征点提取
-        self.face_mesh = mp.solutions.face_mesh.FaceMesh(
-            max_num_faces=1,
-            refine_landmarks=True,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
-        )
+        # # MediaPipe面网格用于更精细的特征点提取
+        # self.face_mesh = mp.solutions.face_mesh.FaceMesh(
+        #     max_num_faces=1,
+        #     refine_landmarks=True,
+        #     min_detection_confidence=0.5,
+        #     min_tracking_confidence=0.5
+        # )
         
         # 历史数据队列
         self.head_pose_history = deque(maxlen=10)  # 减少历史数据量以提高性能
@@ -151,6 +151,8 @@ class EmotionRecognition:
             "Fatigued": 0,
             "Excited": 0
         }
+        self.max_confidence = 0
+        self.emotion_li = []
         
         self.ear_history = deque(maxlen=5)
         
@@ -537,11 +539,11 @@ class EmotionRecognition:
         # print(self.emotion_confidence)
         # 确定最高可能的情绪状态
         max_emotion = max(self.emotion_confidence, key=self.emotion_confidence.get)
-        max_confidence = self.emotion_confidence[max_emotion]
+        self.max_confidence = self.emotion_confidence[max_emotion]
         # 如果信心值太低，显示为未知
-        if max_confidence < 1:
+        if self.max_confidence < 1:
             max_emotion = "Unknown"
-        
+        self.emotion_li.append(max_emotion)
         # 绘制面部关键点
         for i, (x, y) in enumerate(landmarks):
             cv2.circle(result_image, (x, y), 1, (0, 255, 0), -1)
@@ -567,7 +569,7 @@ class EmotionRecognition:
                     cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
         
         # 显示信心度
-        cv2.putText(result_image, f"Confidence: {max_confidence:.2f}", (10, 60), 
+        cv2.putText(result_image, f"Confidence: {self.max_confidence:.2f}", (10, 60), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 1)
         
         # 显示检测到的AU特征
