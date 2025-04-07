@@ -9,6 +9,9 @@ face-analysis-system
 ├── src
 │   │── face_recognition.py
 │   │── emotion_recognition.py
+|   |—— student_monitor.py
+|   |—— Expression_Calibration.py
+|   |—— Calibrating_camera.py
 │   │── utils.py
 │   └── app.py
 ├── model
@@ -16,15 +19,10 @@ face-analysis-system
 │   └── dlib_face_recognition_resnet_model_v1.dat
 ├── data
 │   └── face_database.pkl
-├── tests
-│   ├── __init__.py
-│   ├── test_face_recognition.py
-│   └── test_emotion_recognition.py
 ├── docs
 │   ├── setup.md
 │   └── usage.md
 ├── requirements.txt
-├── main.py
 └── README.md
 ```
 
@@ -38,7 +36,7 @@ face-analysis-system
 
 1. 克隆仓库：
    ```
-   git clone <repository-url>
+   git clone -b dlib https://github.com/maoluois/Facial_detection
    cd face-analysis-system
    ```
 
