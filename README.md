@@ -19,10 +19,15 @@ face-analysis-system
 │   └── dlib_face_recognition_resnet_model_v1.dat
 ├── data
 │   └── face_database.pkl
+├── tests
+│   ├── __init__.py
+│   ├── test_face_recognition.py
+│   └── test_emotion_recognition.py
 ├── docs
 │   ├── setup.md
 │   └── usage.md
 ├── requirements.txt
+├── main.py
 └── README.md
 ```
 
@@ -44,7 +49,7 @@ face-analysis-system
    ```
    pip install -r requirements.txt
    ```
-   需要安装pytorch，cpu即可，建议使用pytho3.10
+   需要安装pytorch，cpu即可，建议使用python3.10 或 anaconda环境来安装这些依赖
 
 3. 载必要的模型并将它们放在model目录中。
    ```
@@ -53,7 +58,8 @@ face-analysis-system
 
 ## Usage
 
-要运行应用程序，直接运行app.py
+请先安装好上面提到的依赖和环境 要运行应用程序，直接使用编译器运行app.py
+或者打开终端用cd指令进入文件根目录 并执行 python3 ./src/app.py
 
 ## Contributing
 
